@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
-const useragent = require('express-useragent');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,38 +9,12 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-app.use(useragent.express());
+// --- Part 1: Serve the dark-mode landing page & static assets ---
 
-// --- Part 1: Landing Page & OS Detection ---
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-  const ua = req.useragent;
-  let downloadLink = '#';
-  let osName = 'Unknown';
-
-  if (ua.isWindows) {
-    downloadLink = '/downloads/p2p-chat-setup.exe';
-    osName = 'Windows';
-  } else if (ua.isAndroid) {
-    downloadLink = '/downloads/p2p-chat.apk';
-    osName = 'Android';
-  } else if (ua.isIphone || ua.isIpad) {
-    downloadLink = 'https://apps.apple.com/app/p2p-chat';
-    osName = 'iOS';
-  }
-
-  res.send(`
-    <html>
-      <head><title>Secure P2P Chat</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-        <h1>Secure P2P Chat</h1>
-        <p>Detected Platform: <strong>${osName}</strong></p>
-        <a href="${downloadLink}" style="padding: 15px 30px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">
-            Download for ${osName}
-        </a>
-      </body>
-    </html>
-  `);
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 
@@ -71,7 +45,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     // Session-only metadata is automatically cleaned up by Socket.IO
     if (socket.peerId) {
-        console.log(`Peer ${socket.peerId} disconnected.`);
+      console.log(`Peer ${socket.peerId} disconnected.`);
     }
   });
 });
