@@ -29,7 +29,7 @@ async function fetchSecureLinkPreview(url, storageRoot) {
       const imgDest = `${storageRoot}/previews/${imgName}`;
 
       const imgRes = await axios.get(ogImg, { responseType: 'arraybuffer' });
-      await fs.mkdir(`${storageRoot}/previews`); // Simplified recursive mkdir
+      await fs.mkdir(`${storageRoot}/previews`, { recursive: true });
       await fs.writeFile(imgDest, imgRes.data);
 
       localImgPath = `previews/${imgName}`;

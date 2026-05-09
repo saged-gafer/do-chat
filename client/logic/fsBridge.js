@@ -10,16 +10,16 @@ if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     // const RNFS = require('react-native-fs');
     fs = {
         unlink: async (path) => { /* RNFS.unlink(path) */ },
-        mkdir: async (path) => { /* RNFS.mkdir(path) */ },
-        writeFile: async (path, data) => { /* RNFS.writeFile(path, data, 'base64') */ }
+        mkdir: async (path, options) => { /* RNFS.mkdir(path) */ },
+        writeFile: async (path, data, options) => { /* RNFS.writeFile(path, data, 'base64') */ }
     };
 } else {
     // Desktop/Backend: Use Node.js fs
     const nodeFs = require('fs').promises;
     fs = {
         unlink: nodeFs.unlink,
-        mkdir: nodeFs.mkdir,
-        writeFile: nodeFs.writeFile
+        mkdir: (path, options) => nodeFs.mkdir(path, options),
+        writeFile: (path, data, options) => nodeFs.writeFile(path, data, options)
     };
 }
 

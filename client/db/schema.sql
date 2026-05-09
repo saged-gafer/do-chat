@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
     -- Status & Ephemerality
     is_viewed INTEGER DEFAULT 0,    -- 0=False, 1=True
+    security_flags TEXT,            -- Metadata flags (e.g., 'anti-screenshot', 'blur-on-loss-focus')
     expires_at DATETIME NOT NULL,   -- Set to 12 hours after creation/receipt
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
