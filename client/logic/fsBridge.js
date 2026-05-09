@@ -5,13 +5,28 @@
 
 let fs;
 
-if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+
+if (isReactNative) {
     // Mobile: Use react-native-fs (Conceptual)
     // const RNFS = require('react-native-fs');
     fs = {
-        unlink: async (path) => { /* RNFS.unlink(path) */ },
-        mkdir: async (path, options) => { /* RNFS.mkdir(path) */ },
-        writeFile: async (path, data, options) => { /* RNFS.writeFile(path, data, 'base64') */ }
+        unlink: async (path) => {
+            console.log(`[Mobile FS] Unlinking: ${path}`);
+            // await RNFS.unlink(path);
+        },
+        mkdir: async (path, options) => {
+            console.log(`[Mobile FS] Mkdir: ${path}`);
+            // await RNFS.mkdir(path);
+        },
+        writeFile: async (path, data, options) => {
+            console.log(`[Mobile FS] WriteFile: ${path}`);
+            // await RNFS.writeFile(path, data, 'base64');
+        },
+        exists: async (path) => {
+            console.log(`[Mobile FS] Exists: ${path}`);
+            // return await RNFS.exists(path);
+        }
     };
 } else {
     // Desktop/Backend: Use Node.js fs
@@ -19,7 +34,15 @@ if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
     fs = {
         unlink: nodeFs.unlink,
         mkdir: (path, options) => nodeFs.mkdir(path, options),
-        writeFile: (path, data, options) => nodeFs.writeFile(path, data, options)
+        writeFile: (path, data, options) => nodeFs.writeFile(path, data, options),
+        exists: async (path) => {
+            try {
+                await nodeFs.access(path);
+                return true;
+            } catch {
+                return false;
+            }
+        }
     };
 }
 
