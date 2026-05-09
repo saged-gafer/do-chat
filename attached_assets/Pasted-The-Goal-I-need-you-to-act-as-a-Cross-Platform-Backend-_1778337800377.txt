@@ -1,0 +1,63 @@
+The Goal:
+I need you to act as a Cross-Platform Backend Architect and Database Expert. Your task is to design the foundational local backend and database schema for a highly secure, privacy-focused, 1-on-1 P2P chat application that runs on TWO platforms: Windows (Desktop) and Mobile (iOS/Android).
+
+Crucial Cross-Platform Requirement:
+The communication between the Windows app and the Mobile app must be 100% seamless. A Windows user must be able to chat with a Mobile user without any data translation issues. Therefore, the local SQLite database schema and the WebRTC message payloads (JSON) MUST be universally standardized across both platforms.
+
+Core Features to Support (Backend & DB Level):
+
+Strictly 1-on-1 P2P Chat: No centralized message storage.
+
+View Once Media: Instagram-style photos/videos that delete after one view.
+
+12-Hour Auto-Delete: Ephemeral messaging where a background task purges all local records and files every 12 hours.
+
+End-to-End Encryption (E2EE): All local storage and WebRTC transit must handle encrypted payloads.
+
+External Link Previews (Instagram/TikTok): Securely fetching OpenGraph metadata locally when a user shares a link via OS share intents.
+
+Anti-Screenshot Backend Support: Storing metadata flags to trigger UI blurring or secure window constraints.
+
+What I Need From You (Focus ONLY on DB, Backend Logic, and Architecture):
+
+1. Unified Universal SQLite Schema:
+Write the raw SQL CREATE TABLE statements. This schema MUST be compatible with both react-native-sqlite-storage (Mobile) and better-sqlite3 (Windows/Electron).
+Include tables for:
+
+Peers (Contacts, public keys)
+
+Messages (Encrypted text, media paths, view-once flags, expiration timestamps)
+
+Link_Metadata (For secure Instagram/TikTok link previews)
+
+2. Standardized P2P Messaging Protocol (JSON):
+Define the exact JSON payload structures that the Windows and Mobile apps will send to each other over WebRTC Data Channels. Provide examples for:
+
+A standard text message.
+
+A "View Once" media notification.
+
+A "Message Read / Media Viewed" receipt (crucial for triggering the destruction of View Once media).
+
+3. The Local Backend Controllers (Node.js / Universal JS):
+Write the core JavaScript business logic functions that will be used by both the Mobile and Windows backends:
+
+saveIncomingMessage(): Decrypting (conceptually) and saving to SQLite.
+
+processViewOnceMedia(): Logic to serve the media to the UI, then immediately DELETE the physical file and DB record upon receiving the read receipt.
+
+fetchSecureLinkPreview(url): A function to securely grab thumbnails/titles from external URLs without leaking the recipient's IP.
+
+4. The 12-Hour Purge Cron Job (Universal Logic):
+Write the JavaScript logic (interval or cron) that scans the SQLite database and aggressively deletes records AND physically deletes associated media files from the local filesystem that are older than 12 hours.
+
+5. Cloud Signaling Server (Brief Setup):
+Provide a basic Express + Socket.io script for the central web server. This server's ONLY job is to exchange WebRTC SDP offers/answers between the Windows and Mobile clients so they can establish the P2P connection. It must enforce the Zero-Knowledge rule (no message logging).
+
+Constraints:
+
+NO Frontend / UI code. I am building the backend and database foundation first.
+
+Ensure the code is modular and clearly heavily commented.
+
+Keep in mind the limitations of mobile file systems vs. Windows file systems when writing the file deletion logic (use generic path handlers).

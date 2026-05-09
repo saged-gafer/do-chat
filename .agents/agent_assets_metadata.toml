@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "776wICK1flU7PdTosij4u"
+uri = "file://artifacts/mockup-sandbox/public/images/hero-network.png"
+type = "image"
+title = "Abstract encrypted network nodes"
