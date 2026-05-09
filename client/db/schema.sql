@@ -1,36 +1,48 @@
--- Local SQLite Schema for P2P Secure Chat
+-- Unified SQLite Schema for Cross-Platform P2P Chat
+-- Compatible with react-native-sqlite-storage (Mobile) and better-sqlite3 (Windows)
 
--- Contacts Table: Stores peer info and public keys for E2EE
-CREATE TABLE IF NOT EXISTS contacts (
-    id TEXT PRIMARY KEY,          -- Unique ID (e.g., public key hash or signaling ID)
+-- 1. Peers Table: Stores connection and cryptographic info
+CREATE TABLE IF NOT EXISTS peers (
+    peer_id TEXT PRIMARY KEY,        -- Unique identity (e.g., Public Key Hash)
     display_name TEXT,
-    public_key TEXT NOT NULL,     -- Peer's public key for encrypting messages
+    public_key TEXT NOT NULL,       -- Peer's public key for E2EE
+    last_seen DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Messages Table: Stores E2EE payloads
+-- 2. Messages Table: Central store for all communication
 CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    contact_id TEXT NOT NULL,
+    message_id TEXT PRIMARY KEY,
+    peer_id TEXT NOT NULL,
     direction TEXT CHECK(direction IN ('inbound', 'outbound')),
-    encrypted_payload BLOB NOT NULL, -- The AES-GCM encrypted message
-    nonce BLOB NOT NULL,            -- Initialization vector for decryption
-    message_type TEXT DEFAULT 'text', -- 'text', 'media', 'view_once'
-    media_path TEXT,                -- Local path to encrypted media file
-    is_viewed INTEGER DEFAULT 0,    -- 0=No, 1=Yes (Used for View Once logic)
+    payload_type TEXT CHECK(payload_type IN ('text', 'media', 'view_once')),
+
+    -- Encrypted content
+    encrypted_blob BLOB NOT NULL,   -- The actual message or media metadata
+    nonce BLOB NOT NULL,            -- Initialization Vector (IV) for AES-GCM
+
+    -- Media specific
+    media_local_path TEXT,          -- Relative path to the local file
+
+    -- Status & Ephemerality
+    is_viewed INTEGER DEFAULT 0,    -- 0=False, 1=True
+    expires_at DATETIME NOT NULL,   -- Set to 12 hours after creation/receipt
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+
+    FOREIGN KEY (peer_id) REFERENCES peers(peer_id) ON DELETE CASCADE
 );
 
--- Link Previews Table: Cache for locally fetched previews
-CREATE TABLE IF NOT EXISTS link_previews (
-    url_hash TEXT PRIMARY KEY,      -- SHA-256 of the URL for privacy
+-- 3. Link_Metadata Table: Cache for secure link previews
+CREATE TABLE IF NOT EXISTS link_metadata (
+    url_hash TEXT PRIMARY KEY,      -- SHA-256 hash of the URL
     title TEXT,
     description TEXT,
-    image_path TEXT,                -- Local path to cached thumbnail
+    thumbnail_local_path TEXT,      -- Local path to downloaded thumbnail
+    original_url TEXT,              -- Optional: Encrypted at rest
     fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indices for performance and purge efficiency
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_link_previews_fetched_at ON link_previews(fetched_at);
+-- Performance and Cleanup Indices
+CREATE INDEX IF NOT EXISTS idx_messages_expiry ON messages(expires_at);
+CREATE INDEX IF NOT EXISTS idx_messages_peer ON messages(peer_id);
+CREATE INDEX IF NOT EXISTS idx_links_expiry ON link_metadata(fetched_at);

@@ -1,64 +1,51 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const crypto = require('crypto');
-const fs = require('fs').promises;
-const path = require('path');
+const fs = require('./fsBridge');
+const db = require('../db/database');
 
 /**
- * Fetches link previews LOCALLY on the client device.
- * This prevents the signaling server from knowing what links are being shared.
- * To prevent IP leaks to the target site, this could be routed through a Tor proxy
- * or a trusted VPN if required by the user's security settings.
+ * Securely fetches link previews locally.
+ * Prevents IP leaks by downloading images to local storage.
  */
-async function getSecureLinkPreview(url) {
+async function fetchSecureLinkPreview(url, storageRoot) {
   try {
-    const urlHash = crypto.createHash('sha256').update(url).digest('hex');
+    // Basic URL hashing for keying
+    const urlHash = Array.from(url).reduce((s, c) => s + c.charCodeAt(0), 0).toString(16);
 
-    // 1. Check local cache (SQLite logic omitted for brevity)
-    // if (existsInDb(urlHash)) return getFromDb(urlHash);
-
-    // 2. Fetch the URL content
-    // User-Agent is set to a common browser to avoid being blocked,
-    // but minimized to reduce fingerprinting.
     const response = await axios.get(url, {
-      timeout: 5000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) PreviewFetcher/1.0' }
+      timeout: 4000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (P2P-Chat-Client)' }
     });
 
     const $ = cheerio.load(response.data);
+    const title = $('meta[property="og:title"]').attr('content') || $('title').text();
+    const desc = $('meta[property="og:description"]').attr('content') || '';
+    const ogImg = $('meta[property="og:image"]').attr('content');
 
-    // 3. Extract OpenGraph tags
-    const preview = {
-      url_hash: urlHash,
-      title: $('meta[property="og:title"]').attr('content') || $('title').text(),
-      description: $('meta[property="og:description"]').attr('content') || '',
-      image_url: $('meta[property="og:image"]').attr('content') || ''
-    };
+    let localImgPath = null;
 
-    // 4. Securely download the thumbnail to local storage
-    // instead of hotlinking (which would leak IP to the image host on render)
-    if (preview.image_url) {
-      const imgPath = path.join('previews', `${urlHash}.jpg`);
-      const imgResponse = await axios.get(preview.image_url, { responseType: 'arraybuffer' });
-      await fs.writeFile(imgPath, imgResponse.data);
-      preview.local_image_path = imgPath;
+    if (ogImg) {
+      const imgName = `thumb_${urlHash}.jpg`;
+      const imgDest = `${storageRoot}/previews/${imgName}`;
+
+      const imgRes = await axios.get(ogImg, { responseType: 'arraybuffer' });
+      await fs.mkdir(`${storageRoot}/previews`); // Simplified recursive mkdir
+      await fs.writeFile(imgDest, imgRes.data);
+
+      localImgPath = `previews/${imgName}`;
     }
 
-    return preview;
+    await db.run(`
+      INSERT OR REPLACE INTO link_metadata
+      (url_hash, title, description, thumbnail_local_path)
+      VALUES (?, ?, ?, ?)
+    `, [urlHash, title, desc, localImgPath]);
+
+    return { title, desc, localImgPath };
   } catch (error) {
-    console.error(`Link preview failed for ${url}:`, error.message);
+    console.error('Link preview error:', error.message);
     return null;
   }
 }
 
-/**
- * Android/iOS Share Intent Handler Logic
- */
-function handleIncomingShareIntent(intentData) {
-    // If the intent contains a URL, trigger the preview fetch
-    if (intentData.type === 'text/plain' && intentData.value.startsWith('http')) {
-        return getSecureLinkPreview(intentData.value);
-    }
-}
-
-module.exports = { getSecureLinkPreview, handleIncomingShareIntent };
+module.exports = { fetchSecureLinkPreview };

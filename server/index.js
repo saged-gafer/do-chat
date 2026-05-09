@@ -7,10 +7,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*", // In production, restrict this to known domains
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*" }
 });
 
 app.use(useragent.express());
@@ -28,77 +25,51 @@ app.get('/', (req, res) => {
   } else if (ua.isAndroid) {
     downloadLink = '/downloads/p2p-chat.apk';
     osName = 'Android';
-  } else if (ua.isiPhone || ua.isPad) {
-    downloadLink = 'https://apps.apple.com/app/p2p-chat'; // App Store Link
+  } else if (ua.isIphone || ua.isIpad) {
+    downloadLink = 'https://apps.apple.com/app/p2p-chat';
     osName = 'iOS';
   }
 
-  // Simplified response for the task (In reality, this would serve an HTML file)
   res.send(`
-    <h1>Secure P2P Chat</h1>
-    <p>Detected OS: ${osName}</p>
-    <a href="${downloadLink}"><button>Download for ${osName}</button></a>
-    <hr>
-    <p>Manual Downloads:</p>
-    <ul>
-        <li><a href="/downloads/p2p-chat-setup.exe">Windows (.exe)</a></li>
-        <li><a href="/downloads/p2p-chat.apk">Android (.apk)</a></li>
-    </ul>
+    <html>
+      <head><title>Secure P2P Chat</title></head>
+      <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+        <h1>Secure P2P Chat</h1>
+        <p>Detected Platform: <strong>${osName}</strong></p>
+        <a href="${downloadLink}" style="padding: 15px 30px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+            Download for ${osName}
+        </a>
+      </body>
+    </html>
   `);
 });
 
-// Serve static build files
-app.use('/downloads', express.static(path.join(__dirname, 'builds')));
 
+// --- Part 2: Zero-Knowledge WebRTC Signaling ---
 
-// --- Part 2: WebRTC Signaling logic ---
-
-/**
- * The signaling server facilitates the initial handshake.
- * It NEVER stores or inspects the payload content.
- */
 io.on('connection', (socket) => {
-  console.log(`User connected for signaling: ${socket.id}`);
-
-  // User joins a private "room" based on their unique signaling ID
-  socket.on('register-id', (customId) => {
-    socket.join(customId);
-    console.log(`Socket ${socket.id} registered as ID: ${customId}`);
+  // 1. Join a room for signaling based on persistent Cryptographic Peer ID
+  socket.on('join-signaling', (peerId) => {
+    socket.join(peerId);
+    socket.peerId = peerId; // Store for relay identification
+    console.log(`Peer ${peerId} registered for signaling.`);
   });
 
-  // Forwarding WebRTC Offer
-  socket.on('offer', ({ targetId, offer }) => {
-    console.log(`Forwarding offer from ${socket.id} to ${targetId}`);
-    socket.to(targetId).emit('offer', {
-      senderId: socket.id,
-      offer: offer
-    });
-  });
-
-  // Forwarding WebRTC Answer
-  socket.on('answer', ({ targetId, answer }) => {
-    console.log(`Forwarding answer from ${socket.id} to ${targetId}`);
-    socket.to(targetId).emit('answer', {
-      senderId: socket.id,
-      answer: answer
-    });
-  });
-
-  // Forwarding ICE Candidates
-  socket.on('ice-candidate', ({ targetId, candidate }) => {
-    console.log(`Forwarding ICE candidate to ${targetId}`);
-    socket.to(targetId).emit('ice-candidate', {
-      senderId: socket.id,
-      candidate: candidate
+  // 2. Relay WebRTC Signal
+  socket.on('signal', ({ targetPeerId, data }) => {
+    // data contains the SDP blob or ICE candidate
+    io.to(targetPeerId).emit('signal', {
+      senderPeerId: socket.peerId, // Use persistent ID, not socket.id
+      data: data
     });
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected from signaling');
+    console.log(`Node disconnected: ${socket.peerId || socket.id}`);
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Signaling & Distribution Server running on port ${PORT}`);
+  console.log(`Signaling Server running on port ${PORT}`);
 });
