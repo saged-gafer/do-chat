@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS messages (
     message_id TEXT PRIMARY KEY,
     peer_id TEXT NOT NULL,
     direction TEXT CHECK(direction IN ('inbound', 'outbound')),
-    payload_type TEXT CHECK(payload_type IN ('text', 'media', 'view_once')),
+    payload_type TEXT CHECK(payload_type IN ('text', 'media', 'view_once', 'receipt', 'signal')),
 
     -- Encrypted content
     encrypted_blob BLOB NOT NULL,   -- The actual message or media metadata

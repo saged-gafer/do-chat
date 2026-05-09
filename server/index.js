@@ -2,7 +2,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const useragent = require('express-useragent');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -51,25 +50,33 @@ io.on('connection', (socket) => {
   // 1. Join a room for signaling based on persistent Cryptographic Peer ID
   socket.on('join-signaling', (peerId) => {
     socket.join(peerId);
-    socket.peerId = peerId; // Store for relay identification
+    socket.peerId = peerId;
     console.log(`Peer ${peerId} registered for signaling.`);
   });
 
-  // 2. Relay WebRTC Signal
+  // 2. Relay WebRTC Signal (Offer/Answer/ICE)
   socket.on('signal', ({ targetPeerId, data }) => {
-    // data contains the SDP blob or ICE candidate
-    io.to(targetPeerId).emit('signal', {
-      senderPeerId: socket.peerId, // Use persistent ID, not socket.id
-      data: data
-    });
+    // SECURITY: The server only relays the blob. It does not log or inspect the content.
+    // data contains the SDP offer/answer or ICE candidate.
+    if (socket.peerId) {
+      io.to(targetPeerId).emit('signal', {
+        senderPeerId: socket.peerId,
+        data: data
+      });
+    } else {
+      console.warn('Attempted signal from unauthenticated socket.');
+    }
   });
 
   socket.on('disconnect', () => {
-    console.log(`Node disconnected: ${socket.peerId || socket.id}`);
+    // Session-only metadata is automatically cleaned up by Socket.IO
+    if (socket.peerId) {
+        console.log(`Peer ${socket.peerId} disconnected.`);
+    }
   });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Signaling Server running on port ${PORT}`);
+  console.log(`Zero-Knowledge Signaling Server running on port ${PORT}`);
 });
